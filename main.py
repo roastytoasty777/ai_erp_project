@@ -1,11 +1,13 @@
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, UploadFile, File
 from pydantic import BaseModel
 from sqlalchemy import create_engine, Column, Integer, String, Float
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
 from typing import List
-
 import pandas as pd
+import pytesseract
+from PIL import Image
+import io
 
 # Database setup
 DATABASE_URL = "sqlite:///./erp_database.db"
@@ -81,3 +83,18 @@ def get_analytics(db: Session = Depends(get_db)):
     )
 
     return summary.to_dict(orient="records")
+
+@app.post("/upload-receipt/")
+async def upload_receipt(file: UploadFile = File(...), db: Session = Depends(get_db)):
+    request_object_content = await file.read()
+    img = Image.open(io.BytesIO(request_object_content))
+    text = pytesseract.image_to_string(img)
+    lines = text.split('\n')
+    extracted_item = lines[0] if lines else "Unknown Item"
+
+    return {
+        "filename": file.filename,
+        "extracted_text": text,
+        "detected_item": extracted_item,
+        "ai_note": "In a full version, we'd parse qty/price and save to DB"
+    }
