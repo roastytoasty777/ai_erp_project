@@ -5,6 +5,8 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
 from typing import List
 
+import pandas as pd
+
 # Database setup
 DATABASE_URL = "sqlite:///./erp_database.db"
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
@@ -61,3 +63,21 @@ def create_order(order: OrderCreate, db: Session = Depends(get_db)):
 def get_all_orders(db: Session = Depends(get_db)):
     orders = db.query(DBOrder).all()
     return orders
+
+@app.get("/dashboard/analytics/")
+def get_analytics(db: Session = Depends(get_db)):
+    orders = db.query(DBOrder).all()
+    if not orders:
+        return {"message": "Insufficient data for AI analytics"}
+    data = [{"item_name": o.item_name, "qty": o.quantity} for o in orders]
+    df = pd.DataFrame(data)
+
+    total_qty = df['qty'].sum()
+    summary = df.groupby("item_name")["qty"].sum().reset_index()
+    summary["demand_probability"] = (summary["qty"] / total_qty)
+
+    summary["inventory_risk"] = summary["demand_probability"].apply(
+        lambda p: "CRITICAL" if p > 0.6 else "STABLE"
+    )
+
+    return summary.to_dict(orient="records")
