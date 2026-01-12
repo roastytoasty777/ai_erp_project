@@ -45,4 +45,4 @@ The system applies Foundations of Probability to inventory data. It calculates t
 <div align="center">
   <img src="https://latex.codecogs.com/svg.latex?\color{white}\Large&space;P(\text{item})=\frac{\sum\text{Quantity}_{\text{item}}}{\sum\text{Quantity}_{\text{total}}}" title="Probability Formula" alt="P(item) = sum(Quantity_item) / sum(Quantity_total)" />
 </div>
-If <img src="https://latex.codecogs.com/svg.latex?\color{white}\Large&space;P(\text{item})>0.6" title="Critical Risk Threshold" alt="P(item) > 0.6" />, the system flags the item as CRITICAL risk.
+If <img src="https://latex.codecogs.com/svg.latex?\color{white}P(\text{item})>0.6" title="Critical Risk" vertical-align="middle" height="18" />, the system flags the item as CRITICAL risk.
