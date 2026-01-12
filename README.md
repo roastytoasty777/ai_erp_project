@@ -43,6 +43,6 @@ Access the documentation at: http://127.0.0.1:8000/docs
 ## 📊 Analytics Logic
 The system applies Foundations of Probability to inventory data. It calculates the demand_probability for each item as:
 <div align="center">
-  <img src="https://latex.codecogs.com/svg.latex?\Large&space;P(\text{item})=\frac{\sum\text{Quantity}_{\text{item}}}{\sum\text{Quantity}_{\text{total}}}" title="Probability Formula" />
+  <img src="https://latex.codecogs.com/svg.latex?\color{white}\Large&space;P(\text{item})=\frac{\sum\text{Quantity}_{\text{item}}}{\sum\text{Quantity}_{\text{total}}}" title="Probability Formula" alt="P(item) = sum(Quantity_item) / sum(Quantity_total)" />
 </div>
-If $P(\text{item}) > 0.6$, the system flags the item as CRITICAL risk.
+If <img src="https://latex.codecogs.com/svg.latex?\color{white}\Large&space;P(\text{item})>0.6" title="Critical Risk Threshold" alt="P(item) > 0.6" />, the system flags the item as CRITICAL risk.
