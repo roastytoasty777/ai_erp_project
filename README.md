@@ -27,6 +27,20 @@ A modern, lightweight Enterprise Resource Planning (ERP) API built with **FastAP
 
 ### Installation
 1. Clone the repository:
-   ```bash
    git clone [https://github.com/roastytoasty777/ai_erp_project.git](https://github.com/roastytoasty777/ai_erp_project.git)
    cd ai_erp_project
+
+2. Install the required libraries:
+pip install fastapi uvicorn sqlalchemy pandas pytesseract pillow
+
+### Running the Application
+Start the local development server:
+
+uvicorn main:app --reload
+
+Access the documentation at: http://127.0.0.1:8000/docs
+
+## 📊 Analytics Logic
+The system applies Foundations of Probability to inventory data. It calculates the demand_probability for each item as:
+$$P(\text{item}) = \frac{\sum \text{Quantity}_{\text{item}}}{\sum \text{Quantity}_{\text{total}}}$$
+If $P(\text{item}) > 0.6$, the system flags the item as CRITICAL risk.
