@@ -4,6 +4,7 @@ import './App.css';
 function App() {
   const [analytics, setAnalytics] = useState([]);
   const [status, setStatus] = useState("Ready to scan receipts...");
+  const [formData, setFormData] = useState({ item_name: '', quantity: '', price: '' });
 
   const loadData = async () => {
     try {
@@ -32,9 +33,52 @@ function App() {
       });
       const result = await res.json();
       setStatus(`Detected: ${result.detected_item}`);
-      loadData(); // Refresh table with new data
+      loadData();
     } catch (err) {
       setStatus("Error: OCR Engine Offline");
+    }
+  };
+
+  const handleDeleteItem = async (itemName) => {
+    try {
+      const res = await fetch(`http://127.0.0.1:8000/orders/${itemName}`, {
+        method: 'DELETE',
+      });
+      if (res.ok) {
+        setStatus("Item deleted successfully");
+        loadData();
+      } else {
+        setStatus("Error deleting item");
+      }
+    } catch (err) {
+      console.error("Delete error:", err);
+      setStatus("Error deleting item");
+    }
+  };
+
+  const handleCreateItem = async (e) => {
+    e.preventDefault();
+    if (!formData.item_name || !formData.quantity || !formData.price) {
+      setStatus("Please fill in all fields");
+      return;
+    }
+
+    try {
+      const res = await fetch('http://127.0.0.1:8000/create-order/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+      if (res.ok) {
+        setStatus(`Item "${formData.item_name}" created successfully`);
+        setFormData({ item_name: '', quantity: '', price: '' });
+        loadData();
+      } else {
+        setStatus("Error creating item");
+      }
+    } catch (err) {
+      console.error("Create error:", err);
+      setStatus("Error creating item");
     }
   };
 
@@ -49,10 +93,40 @@ function App() {
         {/* Styled File Upload */}
         <div className="upload-box">
           <label htmlFor="file-upload" className="custom-upload-btn">
-            <span>Upload Receipt</span>
+            <span>📷 Upload Receipt</span>
           </label>
           <input id="file-upload" type="file" onChange={handleFileUpload} hidden />
           <p className="status-label">{status}</p>
+        </div>
+
+        {/* Manual Item Creation */}
+        <div className="form-box">
+          <h3 className="form-title">Or Add Item Manually</h3>
+          <form onSubmit={handleCreateItem} className="create-form">
+            <input
+              type="text"
+              placeholder="Item Name"
+              value={formData.item_name}
+              onChange={(e) => setFormData({ ...formData, item_name: e.target.value })}
+              className="form-input"
+            />
+            <input
+              type="number"
+              placeholder="Quantity"
+              value={formData.quantity}
+              onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
+              className="form-input"
+            />
+            <input
+              type="number"
+              placeholder="Price"
+              step="0.01"
+              value={formData.price}
+              onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+              className="form-input"
+            />
+            <button type="submit" className="submit-btn">Create Item</button>
+          </form>
         </div>
       </section>
 
@@ -63,6 +137,7 @@ function App() {
               <th>Stock Item</th>
               <th>Demand Prob.</th>
               <th>Risk Assessment</th>
+              <th>Action</th>
             </tr>
           </thead>
           <tbody>
@@ -74,6 +149,14 @@ function App() {
                   <span className={`status-pill ${item.inventory_risk}`}>
                     {item.inventory_risk}
                   </span>
+                </td>
+                <td>
+                  <button 
+                    className="delete-btn" 
+                    onClick={() => handleDeleteItem(item.item_name)}
+                  >
+                    Delete
+                  </button>
                 </td>
               </tr>
             ))}

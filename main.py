@@ -9,6 +9,7 @@ import pytesseract
 from PIL import Image
 import io
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi import HTTPException
 
 # Database setup
 DATABASE_URL = "sqlite:///./erp_database.db"
@@ -110,3 +111,14 @@ async def upload_receipt(file: UploadFile = File(...), db: Session = Depends(get
         "detected_item": extracted_item,
         "ai_note": "In a full version, we'd parse qty/price and save to DB"
     }
+
+@app.delete("/orders/{item_name}")
+def delete_item(item_name: str, db: Session = Depends(get_db)):
+    items = db.query(DBOrder).filter(DBOrder.item_name == item_name).all()
+    if not items:
+        raise HTTPException(status_code=404, detail="Item not found")
+    
+    for item in items:
+        db.delete(item)
+    db.commit()
+    return {"message": f"Deleted {item_name}"}
