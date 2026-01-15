@@ -8,6 +8,7 @@ import pandas as pd
 import pytesseract
 from PIL import Image
 import io
+from fastapi.middleware.cors import CORSMiddleware
 
 # Database setup
 DATABASE_URL = "sqlite:///./erp_database.db"
@@ -38,6 +39,16 @@ class OrderResponse(OrderCreate):
 # App setup
 app = FastAPI()
 
+# CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Dependency to get DB session
 def get_db():
     db = SessionLocal()
     try:
@@ -45,6 +56,7 @@ def get_db():
     finally:
         db.close()
 
+# Routes and logic
 @app.get("/")
 def read_root():
     return {"message": "Welcome to the Order Management API"}
@@ -52,8 +64,8 @@ def read_root():
 @app.post("/create-order/")
 def create_order(order: OrderCreate, db: Session = Depends(get_db)):
     new_db_order = DBOrder(
-        item_name=order.item_name, 
-        quantity=order.quantity, 
+        item_name=order.item_name,
+        quantity=order.quantity,
         price=order.price
     )
     db.add(new_db_order)
