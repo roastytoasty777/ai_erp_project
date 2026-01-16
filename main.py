@@ -84,18 +84,32 @@ def get_analytics(db: Session = Depends(get_db)):
     orders = db.query(DBOrder).all()
     if not orders:
         return {"message": "Insufficient data for AI analytics"}
-    data = [{"item_name": o.item_name, "qty": o.quantity} for o in orders]
-    df = pd.DataFrame(data)
-
-    total_qty = df['qty'].sum()
-    summary = df.groupby("item_name")["qty"].sum().reset_index()
-    summary["demand_probability"] = (summary["qty"] / total_qty)
-
-    summary["inventory_risk"] = summary["demand_probability"].apply(
-        lambda p: "CRITICAL" if p > 0.6 else "STABLE"
-    )
-
-    return summary.to_dict(orient="records")
+    
+    # Group by item_name and aggregate
+    items_dict = {}
+    for order in orders:
+        if order.item_name not in items_dict:
+            items_dict[order.item_name] = {
+                "item_name": order.item_name,
+                "quantity": 0,
+                "price": order.price,
+                "total_price": 0
+            }
+        items_dict[order.item_name]["quantity"] += order.quantity
+        items_dict[order.item_name]["total_price"] += order.quantity * order.price
+    
+    # Convert to list
+    summary_list = list(items_dict.values())
+    
+    # Calculate total quantity for demand probability
+    total_qty = sum(item["quantity"] for item in summary_list)
+    
+    # Add demand probability and risk
+    for item in summary_list:
+        item["demand_probability"] = item["quantity"] / total_qty if total_qty > 0 else 0
+        item["inventory_risk"] = "CRITICAL" if item["demand_probability"] > 0.6 else "STABLE"
+    
+    return summary_list
 
 @app.post("/upload-receipt/")
 async def upload_receipt(file: UploadFile = File(...), db: Session = Depends(get_db)):

@@ -93,7 +93,7 @@ function App() {
         {/* Styled File Upload */}
         <div className="upload-box">
           <label htmlFor="file-upload" className="custom-upload-btn">
-            <span>📷 Upload Receipt</span>
+            <span>Upload Receipt</span>
           </label>
           <input id="file-upload" type="file" onChange={handleFileUpload} hidden />
           <p className="status-label">{status}</p>
@@ -130,11 +130,34 @@ function App() {
         </div>
       </section>
 
+      {/* Summary Statistics */}
+      {analytics.length > 0 && (
+        <div className="summary-wrapper">
+          <div className="summary-card">
+            <div className="summary-stat">
+              <span className="summary-label">Items in Stock</span>
+              <span className="summary-value">{analytics.length}</span>
+            </div>
+            <div className="summary-stat">
+              <span className="summary-label">Total Quantity</span>
+              <span className="summary-value">{analytics.reduce((sum, item) => sum + item.quantity, 0)}</span>
+            </div>
+            <div className="summary-stat">
+              <span className="summary-label">Total Value</span>
+              <span className="summary-value">${analytics.reduce((sum, item) => sum + item.total_price, 0).toFixed(2)}</span>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="table-wrapper">
         <table className="inventory-table">
           <thead>
             <tr>
               <th>Stock Item</th>
+              <th>Quantity</th>
+              <th>Unit Price</th>
+              <th>Total Price</th>
               <th>Demand Prob.</th>
               <th>Risk Assessment</th>
               <th>Action</th>
@@ -144,6 +167,9 @@ function App() {
             {analytics.map((item, i) => (
               <tr key={i}>
                 <td className="item-name">{item.item_name}</td>
+                <td className="quantity-text">{item.quantity}</td>
+                <td className="price-text">${item.price.toFixed(2)}</td>
+                <td className="price-text">${item.total_price.toFixed(2)}</td>
                 <td className="prob-text">{(item.demand_probability * 100).toFixed(1)}%</td>
                 <td>
                   <span className={`status-pill ${item.inventory_risk}`}>
