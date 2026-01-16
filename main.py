@@ -24,6 +24,10 @@ class DBOrder(Base):
     quantity = Column(Integer)
     price = Column(Float)
 
+class ItemUpdate(BaseModel):
+    quantity: int
+    price: float
+
 Base.metadata.create_all(bind=engine)
 
 class OrderCreate(BaseModel):
@@ -40,10 +44,10 @@ class OrderResponse(OrderCreate):
 # App setup
 app = FastAPI()
 
-# CORS
+# CORS - Allow all origins for network access
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=["*"],  # Allow all origins (adjust for security in production)
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -136,3 +140,24 @@ def delete_item(item_name: str, db: Session = Depends(get_db)):
         db.delete(item)
     db.commit()
     return {"message": f"Deleted {item_name}"}
+
+@app.put("/update-item/{item_name}")
+def update_item(item_name: str, update_data: ItemUpdate, db: Session = Depends(get_db)):
+    items = db.query(DBOrder).filter(DBOrder.item_name == item_name).all()
+    if not items:
+        raise HTTPException(status_code=404, detail="Item not found")
+    
+    # Calculate the difference in total quantity
+    current_total = sum(item.quantity for item in items)
+    quantity_difference = update_data.quantity - current_total
+    
+    # Update only the first (or most recent) item with the new total quantity
+    items[0].quantity = update_data.quantity
+    items[0].price = update_data.price
+    
+    # If there are multiple entries for this item, remove the rest
+    for item in items[1:]:
+        db.delete(item)
+    
+    db.commit()
+    return {"message": f"Updated {item_name}", "quantity": update_data.quantity, "price": update_data.price}
