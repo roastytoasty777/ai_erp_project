@@ -1,8 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
+import SalesInsights from './SalesInsights';
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 const API_URL = 'http://192.168.100.89:8000';
+
+// Helper function to get status class based on tier
+const getStatusClass = (tierName) => {
+  if (tierName === 'Top Performer' || tierName === 'CRITICAL') {
+    return 'status-top';
+  } else if (tierName === 'Emerging' || tierName === 'STABLE') {
+    return 'status-emerging';
+  }
+  return 'status-neutral';
+};
 
 function App() {
   const [analytics, setAnalytics] = useState([]);
@@ -227,6 +238,9 @@ function App() {
         </div>
       )}
 
+      {/* Sales Insights Section */}
+      <SalesInsights />
+
       {/* Search Bar */}
       {analytics.length > 0 && (
         <div className="search-wrapper">
@@ -263,7 +277,7 @@ function App() {
               <th>Unit Price</th>
               <th>Total Price</th>
               <th>Demand Prob.</th>
-              <th>Risk Assessment</th>
+              <th>Sales Tier</th>
               <th>Action</th>
             </tr>
           </thead>
@@ -302,7 +316,7 @@ function App() {
                 <td className="price-text">${item.total_price.toFixed(2)}</td>
                 <td className="prob-text">{(item.demand_probability * 100).toFixed(1)}%</td>
                 <td>
-                  <span className={`status-pill ${item.inventory_risk}`}>
+                  <span className={`status-pill ${getStatusClass(item.inventory_risk)}`}>
                     {item.inventory_risk}
                   </span>
                 </td>

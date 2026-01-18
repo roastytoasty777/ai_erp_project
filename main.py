@@ -108,10 +108,18 @@ def get_analytics(db: Session = Depends(get_db)):
     # Calculate total quantity for demand probability
     total_qty = sum(item["quantity"] for item in summary_list)
     
-    # Add demand probability and risk
+    # Add demand probability
     for item in summary_list:
         item["demand_probability"] = item["quantity"] / total_qty if total_qty > 0 else 0
-        item["inventory_risk"] = "CRITICAL" if item["demand_probability"] > 0.6 else "STABLE"
+    
+    # Find item with highest demand and mark it as Top Performer
+    if summary_list:
+        max_demand_item = max(summary_list, key=lambda x: x["demand_probability"])
+        for item in summary_list:
+            if item["item_name"] == max_demand_item["item_name"]:
+                item["inventory_risk"] = "Top Performer"
+            else:
+                item["inventory_risk"] = "Emerging"
     
     return summary_list
 
@@ -187,3 +195,89 @@ def get_chart_data(db: Session = Depends(get_db)):
     chart_data.sort(key=lambda x: x["revenue"], reverse=True)
     
     return chart_data
+
+@app.get("/dashboard/sales-insights/")
+def get_sales_insights(db: Session = Depends(get_db)):
+    """
+    Returns business insights using Pandas analysis:
+    - The Star: Item with highest total revenue
+    - The Trend: Items that appeared in most recent receipts
+    - Revenue Concentration: Checks if top 20% of items generate 80% of revenue (Pareto)
+    """
+    orders = db.query(DBOrder).all()
+    if not orders:
+        return {
+            "insights": [
+                {"title": "No Data", "description": "Insufficient data for business insights."}
+            ]
+        }
+    
+    # Create DataFrame from orders
+    df = pd.DataFrame([
+        {"item_name": o.item_name, "quantity": o.quantity, "price": o.price, "id": o.id}
+        for o in orders
+    ])
+    
+    # Calculate revenue per order
+    df["revenue"] = df["quantity"] * df["price"]
+    
+    # Aggregate by item_name
+    item_stats = df.groupby("item_name").agg({
+        "quantity": "sum",
+        "revenue": "sum",
+        "id": "count"  # count of receipts
+    }).reset_index()
+    item_stats.columns = ["item_name", "total_quantity", "total_revenue", "receipt_count"]
+    
+    insights = []
+    
+    # Insight 1: The Star - Highest revenue item
+    star_item = item_stats.loc[item_stats["total_revenue"].idxmax()]
+    insights.append({
+        "title": "The Star",
+        "description": f"{star_item['item_name']} is your top revenue generator with ${star_item['total_revenue']:.2f} in total sales."
+    })
+    
+    # Insight 2: The Trend - Items in most recent receipts
+    recent_orders = df.nlargest(5, "id")  # Last 5 orders
+    trend_items = recent_orders["item_name"].value_counts().head(3).index.tolist()
+    trend_description = ", ".join(trend_items) if trend_items else "No recent trend data"
+    insights.append({
+        "title": "The Trend",
+        "description": f"Your recent customers are buying: {trend_description}"
+    })
+    
+    # Insight 3: Revenue Concentration - Pareto Principle
+    item_stats_sorted = item_stats.sort_values("total_revenue", ascending=False)
+    total_revenue = item_stats_sorted["total_revenue"].sum()
+    cumulative_revenue = 0
+    items_for_80_percent = 0
+    
+    for revenue in item_stats_sorted["total_revenue"]:
+        cumulative_revenue += revenue
+        items_for_80_percent += 1
+        if cumulative_revenue >= total_revenue * 0.8:
+            break
+    
+    percent_items = (items_for_80_percent / len(item_stats)) * 100
+    is_concentrated = percent_items <= 20
+    
+    if is_concentrated:
+        insights.append({
+            "title": "Revenue Concentration (Pareto)",
+            "description": f"✓ Pareto Principle confirmed! Top {percent_items:.1f}% of items ({items_for_80_percent}/{len(item_stats)}) generate 80% of revenue. Focus on these key products."
+        })
+    else:
+        insights.append({
+            "title": "Revenue Distribution",
+            "description": f"Your revenue is well-distributed. Top {percent_items:.1f}% of items ({items_for_80_percent}/{len(item_stats)}) generate 80% of revenue."
+        })
+    
+    return {
+        "insights": insights,
+        "summary": {
+            "total_items": len(item_stats),
+            "total_revenue": float(total_revenue),
+            "total_quantity": int(item_stats["total_quantity"].sum())
+        }
+    }
