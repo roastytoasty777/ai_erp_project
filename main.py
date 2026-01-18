@@ -44,10 +44,10 @@ class OrderResponse(OrderCreate):
 # App setup
 app = FastAPI()
 
-# CORS - Allow all origins for network access
+# CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins (adjust for security in production)
+    allow_origins=["*"], 
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -151,13 +151,39 @@ def update_item(item_name: str, update_data: ItemUpdate, db: Session = Depends(g
     current_total = sum(item.quantity for item in items)
     quantity_difference = update_data.quantity - current_total
     
-    # Update only the first (or most recent) item with the new total quantity
     items[0].quantity = update_data.quantity
     items[0].price = update_data.price
     
-    # If there are multiple entries for this item, remove the rest
     for item in items[1:]:
         db.delete(item)
     
     db.commit()
     return {"message": f"Updated {item_name}", "quantity": update_data.quantity, "price": update_data.price}
+
+@app.get("/dashboard/chart-data/")
+def get_chart_data(db: Session = Depends(get_db)):
+    """
+    Returns chart data with revenue and quantity for each item.
+    Output: List of objects with name, revenue, and quantity.
+    """
+    orders = db.query(DBOrder).all()
+    if not orders:
+        return []
+    
+    # Group by item_name and aggregate
+    items_dict = {}
+    for order in orders:
+        if order.item_name not in items_dict:
+            items_dict[order.item_name] = {
+                "name": order.item_name,
+                "quantity": 0,
+                "revenue": 0.0
+            }
+        items_dict[order.item_name]["quantity"] += order.quantity
+        items_dict[order.item_name]["revenue"] += order.quantity * order.price
+    
+    # Convert to list and sort by revenue descending
+    chart_data = list(items_dict.values())
+    chart_data.sort(key=lambda x: x["revenue"], reverse=True)
+    
+    return chart_data

@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
+import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
-// Configure API URL - change this to your backend server's IP address
-const API_URL = 'http://192.168.100.89:8000'; // Your PC's network IP
+const API_URL = 'http://192.168.100.89:8000';
 
 function App() {
   const [analytics, setAnalytics] = useState([]);
+  const [chartData, setChartData] = useState([]);
   const [status, setStatus] = useState("Ready to scan receipts...");
   const [formData, setFormData] = useState({ item_name: '', quantity: '', price: '' });
   const [searchQuery, setSearchQuery] = useState('');
@@ -23,7 +24,20 @@ function App() {
     }
   };
 
-  useEffect(() => { loadData(); }, []);
+  const loadChartData = async () => {
+    try {
+      const response = await fetch(`${API_URL}/dashboard/chart-data/`);
+      const data = await response.json();
+      setChartData(data);
+    } catch (err) {
+      console.error("Failed to load chart data:", err);
+    }
+  };
+
+  useEffect(() => { 
+    loadData();
+    loadChartData();
+  }, []);
 
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];
@@ -41,6 +55,7 @@ function App() {
       const result = await res.json();
       setStatus(`Detected: ${result.detected_item}`);
       loadData();
+      loadChartData();
     } catch (err) {
       setStatus("Error: OCR Engine Offline");
     }
@@ -54,6 +69,7 @@ function App() {
       if (res.ok) {
         setStatus("Item deleted successfully");
         loadData();
+        loadChartData();
       } else {
         setStatus("Error deleting item");
       }
@@ -80,6 +96,7 @@ function App() {
         setStatus(`Item "${formData.item_name}" created successfully`);
         setFormData({ item_name: '', quantity: '', price: '' });
         loadData();
+        loadChartData();
       } else {
         setStatus("Error creating item");
       }
@@ -113,6 +130,7 @@ function App() {
         setStatus(`Item "${itemName}" updated successfully`);
         setEditingItem(null);
         loadData();
+        loadChartData();
       } else {
         setStatus("Error updating item");
       }
@@ -328,6 +346,84 @@ function App() {
           </tbody>
         </table>
       </div>
+
+      {/* Charts Section */}
+      {chartData.length > 0 && (
+        <div className="charts-container">
+          {/* Revenue Bar Chart */}
+          <div className="chart-card">
+            <h3 className="chart-title">Revenue by Item</h3>
+            <ResponsiveContainer width="100%" height={400}>
+              <BarChart data={chartData} margin={{ top: 20, right: 30, left: 0, bottom: 60 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(148, 163, 184, 0.2)" />
+                <XAxis 
+                  dataKey="name" 
+                  stroke="#94a3b8"
+                  angle={-45}
+                  textAnchor="end"
+                  height={100}
+                  tick={{ fill: '#94a3b8', fontSize: 12 }}
+                />
+                <YAxis 
+                  stroke="#94a3b8"
+                  tick={{ fill: '#94a3b8', fontSize: 12 }}
+                  label={{ value: 'Revenue ($)', angle: -90, position: 'insideLeft', fill: '#94a3b8' }}
+                />
+                <Tooltip 
+                  contentStyle={{
+                    backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                    border: '1px solid rgba(59, 130, 246, 0.5)',
+                    borderRadius: '8px',
+                    color: '#e2e8f0'
+                  }}
+                  formatter={(value) => [`$${value.toFixed(2)}`, 'Revenue']}
+                />
+                <Legend 
+                  wrapperStyle={{ color: '#94a3b8' }}
+                  contentStyle={{
+                    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+                    border: '1px solid rgba(59, 130, 246, 0.3)',
+                    borderRadius: '6px'
+                  }}
+                />
+                <Bar dataKey="revenue" fill="#60a5fa" radius={[8, 8, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Quantity Pie Chart */}
+          <div className="chart-card">
+            <h3 className="chart-title">Quantity Distribution</h3>
+            <ResponsiveContainer width="100%" height={400}>
+              <PieChart>
+                <Pie
+                  data={chartData}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={true}
+                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(1)}%`}
+                  outerRadius={120}
+                  fill="#8884d8"
+                  dataKey="quantity"
+                >
+                  {chartData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={['#60a5fa', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#06b6d4', '#6366f1', '#f97316'][index % 8]} />
+                  ))}
+                </Pie>
+                <Tooltip 
+                  contentStyle={{
+                    backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                    border: '1px solid rgba(59, 130, 246, 0.5)',
+                    borderRadius: '8px',
+                    color: '#e2e8f0'
+                  }}
+                  formatter={(value) => [value, 'Quantity']}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
