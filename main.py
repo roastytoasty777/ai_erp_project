@@ -24,9 +24,19 @@ class DBOrder(Base):
     quantity = Column(Integer)
     price = Column(Float)
 
+class DBStock(Base):
+    __tablename__ = "stock"
+    id = Column(Integer, primary_key=True, index=True)
+    item_name = Column(String, unique=True, index=True)
+    current_quantity = Column(Integer, default=0)
+
 class ItemUpdate(BaseModel):
     quantity: int
     price: float
+
+class StockUpdate(BaseModel):
+    item_name: str
+    current_quantity: int
 
 Base.metadata.create_all(bind=engine)
 
@@ -89,7 +99,11 @@ def get_analytics(db: Session = Depends(get_db)):
     if not orders:
         return {"message": "Insufficient data for AI analytics"}
     
-    # Group by item_name and aggregate
+    # Get stock data
+    stock_items = db.query(DBStock).all()
+    stock_dict = {item.item_name: item.current_quantity for item in stock_items}
+    
+    # Group by item_name and aggregate sales
     items_dict = {}
     for order in orders:
         if order.item_name not in items_dict:
@@ -108,18 +122,27 @@ def get_analytics(db: Session = Depends(get_db)):
     # Calculate total quantity for demand probability
     total_qty = sum(item["quantity"] for item in summary_list)
     
-    # Add demand probability
+    # Add demand probability and stock level
     for item in summary_list:
         item["demand_probability"] = item["quantity"] / total_qty if total_qty > 0 else 0
+        # Get stock level from database, default to 0 if not found
+        item["stock_level"] = stock_dict.get(item["item_name"], 0)
+        
+        # Calculate risk based on stock level vs expected sales (1.5x multiplier)
+        risk_threshold = item["quantity"] * 1.5
+        if item["stock_level"] < risk_threshold:
+            item["inventory_risk"] = "CRITICAL"
+        else:
+            item["inventory_risk"] = "STABLE"
     
-    # Find item with highest demand and mark it as Top Performer
+    # Find item with highest demand for "Top Performer" badge
     if summary_list:
         max_demand_item = max(summary_list, key=lambda x: x["demand_probability"])
         for item in summary_list:
-            if item["item_name"] == max_demand_item["item_name"]:
-                item["inventory_risk"] = "Top Performer"
+            if item["item_name"] == max_demand_item["item_name"] and item["inventory_risk"] == "STABLE":
+                item["sales_tier"] = "Top Performer"
             else:
-                item["inventory_risk"] = "Emerging"
+                item["sales_tier"] = "Emerging" if item["inventory_risk"] == "STABLE" else "At Risk"
     
     return summary_list
 
@@ -167,6 +190,23 @@ def update_item(item_name: str, update_data: ItemUpdate, db: Session = Depends(g
     
     db.commit()
     return {"message": f"Updated {item_name}", "quantity": update_data.quantity, "price": update_data.price}
+
+@app.put("/update-stock/{item_name}")
+def update_stock(item_name: str, update_data: StockUpdate, db: Session = Depends(get_db)):
+    """
+    Update or create stock level for an item.
+    """
+    stock = db.query(DBStock).filter(DBStock.item_name == item_name).first()
+    
+    if stock:
+        stock.current_quantity = update_data.current_quantity
+    else:
+        stock = DBStock(item_name=item_name, current_quantity=update_data.current_quantity)
+        db.add(stock)
+    
+    db.commit()
+    db.refresh(stock)
+    return {"message": f"Stock updated for {item_name}", "current_quantity": stock.current_quantity}
 
 @app.get("/dashboard/chart-data/")
 def get_chart_data(db: Session = Depends(get_db)):

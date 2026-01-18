@@ -19,10 +19,10 @@ function App() {
   const [analytics, setAnalytics] = useState([]);
   const [chartData, setChartData] = useState([]);
   const [status, setStatus] = useState("Ready to scan receipts...");
-  const [formData, setFormData] = useState({ item_name: '', quantity: '', price: '' });
+  const [formData, setFormData] = useState({ item_name: '', quantity: '', price: '', stock_level: '' });
   const [searchQuery, setSearchQuery] = useState('');
   const [editingItem, setEditingItem] = useState(null);
-  const [editFormData, setEditFormData] = useState({ quantity: '', price: '' });
+  const [editFormData, setEditFormData] = useState({ quantity: '', price: '', stock_level: '' });
 
   const loadData = async () => {
     try {
@@ -101,11 +101,30 @@ function App() {
       const res = await fetch(`${API_URL}/create-order/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          item_name: formData.item_name,
+          quantity: parseInt(formData.quantity),
+          price: parseFloat(formData.price)
+        }),
       });
       if (res.ok) {
+        // Update stock level if provided
+        if (formData.stock_level) {
+          try {
+            await fetch(`${API_URL}/update-stock/${formData.item_name}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                item_name: formData.item_name,
+                current_quantity: parseInt(formData.stock_level)
+              }),
+            });
+          } catch (err) {
+            console.error("Stock update error:", err);
+          }
+        }
         setStatus(`Item "${formData.item_name}" created successfully`);
-        setFormData({ item_name: '', quantity: '', price: '' });
+        setFormData({ item_name: '', quantity: '', price: '', stock_level: '' });
         loadData();
         loadChartData();
       } else {
@@ -119,7 +138,11 @@ function App() {
 
   const handleEditItem = (item) => {
     setEditingItem(item.item_name);
-    setEditFormData({ quantity: String(item.quantity), price: String(item.price) });
+    setEditFormData({ 
+      quantity: String(item.quantity), 
+      price: String(item.price),
+      stock_level: String(item.stock_level || 0)
+    });
   };
 
   const handleUpdateItem = async (itemName) => {
@@ -138,6 +161,21 @@ function App() {
         }),
       });
       if (res.ok) {
+        // Update stock level if provided
+        if (editFormData.stock_level) {
+          try {
+            await fetch(`${API_URL}/update-stock/${itemName}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                item_name: itemName,
+                current_quantity: parseInt(editFormData.stock_level)
+              }),
+            });
+          } catch (err) {
+            console.error("Stock update error:", err);
+          }
+        }
         setStatus(`Item "${itemName}" updated successfully`);
         setEditingItem(null);
         loadData();
@@ -208,6 +246,13 @@ function App() {
                   onChange={(e) => setFormData({ ...formData, price: e.target.value })}
                   className="form-input"
                 />
+                <input
+                  type="number"
+                  placeholder="Warehouse Stock"
+                  value={formData.stock_level}
+                  onChange={(e) => setFormData({ ...formData, stock_level: e.target.value })}
+                  className="form-input"
+                />
                 <button type="submit" className="submit-btn">Create Item</button>
               </form>
             </div>
@@ -274,10 +319,12 @@ function App() {
             <tr>
               <th>Stock Item</th>
               <th>Quantity</th>
+              <th>Stock Level</th>
               <th>Unit Price</th>
               <th>Total Price</th>
               <th>Demand Prob.</th>
               <th>Sales Tier</th>
+              <th>Risk Status</th>
               <th>Action</th>
             </tr>
           </thead>
@@ -299,6 +346,19 @@ function App() {
                     item.quantity
                   )}
                 </td>
+                <td className="stock-text">
+                  {editingItem === item.item_name ? (
+                    <input
+                      key={`stock-${item.item_name}`}
+                      type="number"
+                      value={editFormData.stock_level}
+                      onChange={(e) => setEditFormData({ ...editFormData, stock_level: e.target.value })}
+                      className="edit-input"
+                    />
+                  ) : (
+                    item.stock_level || 0
+                  )}
+                </td>
                 <td className="price-text">
                   {editingItem === item.item_name ? (
                     <input
@@ -316,7 +376,12 @@ function App() {
                 <td className="price-text">${item.total_price.toFixed(2)}</td>
                 <td className="prob-text">{(item.demand_probability * 100).toFixed(1)}%</td>
                 <td>
-                  <span className={`status-pill ${getStatusClass(item.inventory_risk)}`}>
+                  <span className={`status-pill ${getStatusClass(item.sales_tier || item.inventory_risk)}`}>
+                    {item.sales_tier || item.inventory_risk}
+                  </span>
+                </td>
+                <td>
+                  <span className={`status-pill ${item.inventory_risk === 'CRITICAL' ? 'status-emerging' : 'status-top'}`}>
                     {item.inventory_risk}
                   </span>
                 </td>
