@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Depends, UploadFile, File
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy import create_engine, Column, Integer, String, Float
 from sqlalchemy.ext.declarative import declarative_base
@@ -6,8 +7,9 @@ from sqlalchemy.orm import sessionmaker, Session
 from typing import List
 import pandas as pd
 import pytesseract
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 import io
+import re
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import HTTPException
 
@@ -152,13 +154,40 @@ async def upload_receipt(file: UploadFile = File(...), db: Session = Depends(get
     img = Image.open(io.BytesIO(request_object_content))
     text = pytesseract.image_to_string(img)
     lines = text.split('\n')
-    extracted_item = lines[0] if lines else "Unknown Item"
+    
+    detected_items = []
+    
+    for line in lines:
+        line = line.strip()
+        if not line: continue
+        if "TOTAL" in line or "Item" in line: continue
+        
+        # Regex to find: [Name] [Qty] [Price]
+        # Looks for "Name 123 12.34" pattern
+        # (.+?) = Name (non-greedy)
+        # \s+ = Spaces
+        # (\d+) = Quantity (digits)
+        # \s+ = Spaces
+        # (\d+\.\d{2}) = Price (digits.digits)
+        match = re.search(r'(.+?)\s+(\d+)\s+(\d+\.\d{2})', line)
+        if match:
+            name = match.group(1).strip()
+            qty = int(match.group(2))
+            price = float(match.group(3))
+            
+            # Save to Database
+            new_order = DBOrder(item_name=name, quantity=qty, price=price)
+            db.add(new_order)
+            detected_items.append({"name": name, "qty": qty, "price": price})
+    
+    db.commit()
 
     return {
         "filename": file.filename,
         "extracted_text": text,
-        "detected_item": extracted_item,
-        "ai_note": "In a full version, we'd parse qty/price and save to DB"
+        "detected_item": f"{len(detected_items)} items detected",
+        "detected_items": detected_items,
+        "ai_note": "Logic enhanced to parse lines and save to DB automatically."
     }
 
 @app.delete("/orders/{item_name}")
@@ -321,3 +350,73 @@ def get_sales_insights(db: Session = Depends(get_db)):
             "total_quantity": int(item_stats["total_quantity"].sum())
         }
     }
+
+# Receipt Generation Models
+class ReceiptItem(BaseModel):
+    name: str
+    qty: int
+    price: float
+
+class ReceiptRequest(BaseModel):
+    store_name: str
+    items: List[ReceiptItem]
+    total: float
+
+@app.post("/generate-receipt/")
+async def generate_receipt(request: ReceiptRequest):
+    # Create image
+    width = 400
+    # Estimate height: header + items * line_height + total + footer
+    line_height = 30
+    header_height = 100
+    footer_height = 100
+    height = header_height + (len(request.items) * line_height) + footer_height
+    
+    image = Image.new('RGB', (width, height), color='white')
+    draw = ImageDraw.Draw(image)
+    
+    # Try to load a font, otherwise default
+    try:
+        # Monospace font if possible. "consola" is common on Windows.
+        font = ImageFont.truetype("consola.ttf", 15)
+        title_font = ImageFont.truetype("consola.ttf", 20)
+    except IOError:
+        font = ImageFont.load_default()
+        title_font = ImageFont.load_default()
+
+    y = 20
+    # Draw Store Name
+    draw.text((width/2, y), request.store_name, font=title_font, fill="black", anchor="ms")
+    y += 50
+    
+    # Draw Headers
+    draw.text((20, y), "Item", font=font, fill="black")
+    draw.text((250, y), "Qty", font=font, fill="black")
+    draw.text((320, y), "Price", font=font, fill="black")
+    y += 30
+    draw.line((20, y, 380, y), fill="black", width=2)
+    y += 20 # Increased padding to prevent collision
+
+    # Draw Items
+    for item in request.items:
+        # Truncate long names
+        name = (item.name[:25] + '..') if len(item.name) > 25 else item.name
+        draw.text((20, y), name, font=font, fill="black") # Default anchor Top-Left
+        draw.text((260, y), str(item.qty), font=font, fill="black", anchor="ra") # Right Ascender (Top-alignedish)
+        draw.text((380, y), f"{item.price:.2f}", font=font, fill="black", anchor="ra")
+        y += line_height
+
+    y += 10
+    draw.line((20, y, 380, y), fill="black", width=2)
+    y += 20
+    
+    # Draw Total
+    draw.text((20, y), "TOTAL", font=title_font, fill="black")
+    draw.text((380, y), f"${request.total:.2f}", font=title_font, fill="black", anchor="rs")
+    
+    # Save to buffer
+    img_byte_arr = io.BytesIO()
+    image.save(img_byte_arr, format='PNG')
+    img_byte_arr.seek(0)
+    
+    return StreamingResponse(img_byte_arr, media_type="image/png")

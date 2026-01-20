@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
 import SalesInsights from './SalesInsights';
+import ReceiptGenerator from './ReceiptGenerator';
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
-const API_URL = 'http://192.168.100.89:8000';
+const API_URL = 'http://192.168.56.1:8000';
 
 // Helper function to get status class based on tier
 const getStatusClass = (tierName) => {
@@ -503,6 +504,9 @@ function App() {
           </div>
         </div>
       )}
+
+      {/* Receipt Generator Tool */}
+      <ReceiptGenerator />
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import './SalesInsights.css';
 
-const API_URL = 'http://192.168.100.89:8000';
+const API_URL = 'http://192.168.56.1:8000';
 
 function SalesInsights() {
   const [insights, setInsights] = useState([]);
