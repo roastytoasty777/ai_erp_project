@@ -1,8 +1,80 @@
+/* Global Styles */
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 80px; /* Offset for fixed header */
+}
+
+/* Navbar */
+.navbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 2rem;
+  background-color: rgba(15, 23, 42, 0.98); /* Increased opacity */
+  /* backdrop-filter: blur(8px); Performance optimization */
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); /* Simplified shadow */
+  margin-bottom: 1rem;
+  border-radius: 0 0 16px 16px;
+}
+
+.navbar-brand {
+  font-size: 1.5rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, #60a5fa 0%, #8b5cf6 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  cursor: pointer;
+}
+
+.navbar-menu {
+  display: flex;
+  list-style: none;
+  gap: 2rem;
+  margin: 0;
+  padding: 0;
+}
+
+.navbar-menu li a {
+  text-decoration: none;
+  color: #94a3b8;
+  font-weight: 600;
+  font-size: 0.85rem;
+  transition: all 0.2s ease;
+  letter-spacing: 0.5px;
+  position: relative;
+  display: inline-block;
+}
+
+.navbar-menu li a:hover {
+  color: #60a5fa;
+  text-shadow: 0 0 8px rgba(96, 165, 250, 0.4);
+}
+
+.navbar-menu li a::after {
+  content: '';
+  position: absolute;
+  width: 0;
+  height: 2px;
+  bottom: -4px;
+  left: 0;
+  background: linear-gradient(90deg, #60a5fa, #8b5cf6);
+  transition: width 0.3s ease;
+}
+
+.navbar-menu li a:hover::after {
+  width: 100%;
+}
+
 /* Main Container */
 .dashboard-container {
   max-width: 1400px;
   margin: 0 auto;
-  padding: 2rem 0;
+  padding: 0 0 2rem 0; /* Updated padding */
 }
 
 .hero-section {
@@ -294,7 +366,7 @@
   background: linear-gradient(135deg, rgba(30, 41, 59, 0.6), rgba(15, 23, 42, 0.8));
   border-radius: 12px;
   border: 1px solid rgba(148, 163, 184, 0.2);
-  box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); /* Simplified shadow */
 }
 
 .summary-stat {
@@ -489,7 +561,7 @@
   background-color: rgba(15, 23, 42, 0.6);
   border-radius: 8px;
   overflow: hidden;
-  box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); /* Simplified shadow */
 }
 
 .inventory-table thead {
@@ -625,15 +697,15 @@
   border: 1px solid rgba(148, 163, 184, 0.15);
   border-radius: 16px;
   padding: 30px;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
-  transition: all 0.3s ease;
+  /* backdrop-filter: blur(10px); Performance optimization */
+  /* -webkit-backdrop-filter: blur(10px); */
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); /* Simplified shadow */
+  transition: transform 0.3s ease, border-color 0.3s ease; /* Optimized transition */
 }
 
 .chart-card:hover {
   border-color: rgba(148, 163, 184, 0.3);
-  box-shadow: 0 12px 48px 0 rgba(31, 38, 135, 0.25);
+  /* box-shadow: 0 12px 48px 0 rgba(31, 38, 135, 0.25); Removed expensive shadow */
   transform: translateY(-2px);
 }
 

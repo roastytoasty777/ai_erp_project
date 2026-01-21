@@ -3,7 +3,7 @@ import './SalesInsights.css';
 
 const API_URL = 'http://192.168.56.1:8000';
 
-function SalesInsights() {
+const SalesInsights = React.memo(() => {
   const [insights, setInsights] = useState([]);
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -81,6 +81,6 @@ function SalesInsights() {
       </div>
     </div>
   );
-}
+});
 
 export default SalesInsights;
