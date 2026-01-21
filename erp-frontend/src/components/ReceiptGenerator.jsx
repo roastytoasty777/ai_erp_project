@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import './App.css'; 
+import '../App.css'; 
 
 const API_URL = 'http://192.168.56.1:8000';
 

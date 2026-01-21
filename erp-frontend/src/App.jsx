@@ -1,20 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
-import SalesInsights from './SalesInsights';
-import ReceiptGenerator from './ReceiptGenerator';
-import StatisticsCharts from './StatisticsCharts';
+import ReceiptGenerator from './components/ReceiptGenerator';
+import StatisticsCharts from './components/StatisticsCharts';
+import Navbar from './components/Navbar';
+import HeroSection from './components/HeroSection';
+import AddItemSection from './components/AddItemSection';
+import HighlightsSection from './components/HighlightsSection';
+import SalesTableSection from './components/SalesTableSection';
 
 const API_URL = 'http://192.168.56.1:8000';
-
-// Helper function to get status class based on tier
-const getStatusClass = (tierName) => {
-  if (tierName === 'Top Performer' || tierName === 'CRITICAL') {
-    return 'status-top';
-  } else if (tierName === 'Emerging' || tierName === 'STABLE') {
-    return 'status-emerging';
-  }
-  return 'status-neutral';
-};
 
 function App() {
   const [analytics, setAnalytics] = useState([]);
@@ -197,248 +191,32 @@ function App() {
 
   return (
     <div className="dashboard-container">
-      <nav className="navbar">
-        <div className="navbar-brand">AI-ERP</div>
-        <ul className="navbar-menu">
-          <li><a href="#section-add-item">ADD ITEM</a></li>
-          <li><a href="#section-highlights">HIGHLIGHTS</a></li>
-          <li><a href="#section-sales-table">SALES TABLE</a></li>
-          <li><a href="#section-statistics">STATISTICS CHARTS</a></li>
-          <li><a href="#section-receipt-generator">RECEIPT GENERATOR</a></li>
-        </ul>
-      </nav>
+      <Navbar />
+      <HeroSection />
 
-      <header className="hero-section">
-        <h1 className="main-title">AI-ERP <span className="accent">Vision</span></h1>
-        <p className="description">Probabilistic Inventory & OCR Intelligence</p>
-      </header>
+      <AddItemSection 
+        handleFileUpload={handleFileUpload}
+        handleCreateItem={handleCreateItem}
+        formData={formData}
+        setFormData={setFormData}
+        status={status}
+      />
 
-      <section id="section-add-item" className="controls">
-        {/* Combined Upload and Form Section */}
-        <div className="combined-section">
-          {/* Left Section - Upload */}
-          <div className="left-section">
-            <div className="upload-box">
-              <label htmlFor="file-upload" className="custom-upload-btn">
-                <span>Upload Receipt</span>
-              </label>
-              <input id="file-upload" type="file" onChange={handleFileUpload} hidden />
-            </div>
-          </div>
+      <HighlightsSection analytics={analytics} />
 
-          {/* OR Separator */}
-          <div className="separator">
-            <span className="separator-text">OR</span>
-          </div>
-
-          {/* Right Section - Form */}
-          <div className="right-section">
-            <div className="form-box">
-              <h3 className="form-label">ADD ITEM MANUALLY</h3>
-              <form onSubmit={handleCreateItem} className="create-form">
-                <input
-                  type="text"
-                  placeholder="Item Name"
-                  value={formData.item_name}
-                  onChange={(e) => setFormData({ ...formData, item_name: e.target.value })}
-                  className="form-input"
-                />
-                <input
-                  type="number"
-                  placeholder="Quantity"
-                  value={formData.quantity}
-                  onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
-                  className="form-input"
-                />
-                <input
-                  type="number"
-                  placeholder="Price"
-                  step="0.01"
-                  value={formData.price}
-                  onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                  className="form-input"
-                />
-                <input
-                  type="number"
-                  placeholder="Warehouse Stock"
-                  value={formData.stock_level}
-                  onChange={(e) => setFormData({ ...formData, stock_level: e.target.value })}
-                  className="form-input"
-                />
-                <button type="submit" className="submit-btn">Create Item</button>
-              </form>
-            </div>
-          </div>
-        </div>
-
-        {/* Status Message */}
-        <p className="status-label">{status}</p>
-      </section>
-
-      <div id="section-highlights">
-        {/* Summary Statistics */}
-        {analytics.length > 0 && (
-          <div className="summary-wrapper">
-            <div className="summary-card">
-              <div className="summary-stat">
-                <span className="summary-label">Items in Stock</span>
-                <span className="summary-value">{analytics.length}</span>
-              </div>
-              <div className="summary-stat">
-                <span className="summary-label">Total Quantity</span>
-                <span className="summary-value">{analytics.reduce((sum, item) => sum + item.quantity, 0)}</span>
-              </div>
-              <div className="summary-stat">
-                <span className="summary-label">Total Value</span>
-                <span className="summary-value">${analytics.reduce((sum, item) => sum + item.total_price, 0).toFixed(2)}</span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Sales Insights Section */}
-        <SalesInsights />
-      </div>
-
-      {/* Search Bar */}
-      {analytics.length > 0 && (
-        <div className="search-wrapper">
-          <div className="search-container">
-            <input
-              type="text"
-              placeholder="Search items..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="search-input"
-            />
-            {searchQuery && (
-              <button 
-                className="clear-btn" 
-                onClick={() => setSearchQuery('')}
-                title="Clear search"
-              >
-                ✕
-              </button>
-            )}
-          </div>
-          <span className="search-results">
-            {filteredAnalytics.length} Item(s)
-          </span>
-        </div>
-      )}
-
-      <div id="section-sales-table" className="table-wrapper">
-        <table className="inventory-table">
-          <thead>
-            <tr>
-              <th>Stock Item</th>
-              <th>Quantity</th>
-              <th>Stock Level</th>
-              <th>Unit Price</th>
-              <th>Total Price</th>
-              <th>Demand Prob.</th>
-              <th>Sales Tier</th>
-              <th>Risk Status</th>
-              <th>Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredAnalytics.map((item, i) => (
-              <tr key={i}>
-                <td className="item-name">{item.item_name}</td>
-                <td className="quantity-text">
-                  {editingItem === item.item_name ? (
-                    <input
-                      key={`qty-${item.item_name}`}
-                      type="number"
-                      value={editFormData.quantity}
-                      onChange={(e) => setEditFormData({ ...editFormData, quantity: e.target.value })}
-                      className="edit-input"
-                      autoFocus
-                    />
-                  ) : (
-                    item.quantity
-                  )}
-                </td>
-                <td className="stock-text">
-                  {editingItem === item.item_name ? (
-                    <input
-                      key={`stock-${item.item_name}`}
-                      type="number"
-                      value={editFormData.stock_level}
-                      onChange={(e) => setEditFormData({ ...editFormData, stock_level: e.target.value })}
-                      className="edit-input"
-                    />
-                  ) : (
-                    item.stock_level || 0
-                  )}
-                </td>
-                <td className="price-text">
-                  {editingItem === item.item_name ? (
-                    <input
-                      key={`price-${item.item_name}`}
-                      type="number"
-                      step="0.01"
-                      value={editFormData.price}
-                      onChange={(e) => setEditFormData({ ...editFormData, price: e.target.value })}
-                      className="edit-input"
-                    />
-                  ) : (
-                    `$${item.price.toFixed(2)}`
-                  )}
-                </td>
-                <td className="price-text">${item.total_price.toFixed(2)}</td>
-                <td className="prob-text">{(item.demand_probability * 100).toFixed(1)}%</td>
-                <td>
-                  <span className={`status-pill ${getStatusClass(item.sales_tier || item.inventory_risk)}`}>
-                    {item.sales_tier || item.inventory_risk}
-                  </span>
-                </td>
-                <td>
-                  <span className={`status-pill ${item.inventory_risk === 'CRITICAL' ? 'status-emerging' : 'status-top'}`}>
-                    {item.inventory_risk}
-                  </span>
-                </td>
-                <td>
-                  <div className="action-buttons">
-                    {editingItem === item.item_name ? (
-                      <>
-                        <button 
-                          className="save-btn" 
-                          onClick={() => handleUpdateItem(item.item_name)}
-                        >
-                          ✓ Save
-                        </button>
-                        <button 
-                          className="cancel-btn" 
-                          onClick={() => setEditingItem(null)}
-                        >
-                          ✕ Cancel
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <button 
-                          className="edit-btn" 
-                          onClick={() => handleEditItem(item)}
-                        >
-                          ✎ Edit
-                        </button>
-                        <button 
-                          className="delete-btn" 
-                          onClick={() => handleDeleteItem(item.item_name)}
-                        >
-                          Delete
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <SalesTableSection
+        analytics={analytics}
+        filteredAnalytics={filteredAnalytics}
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        handleDeleteItem={handleDeleteItem}
+        handleEditItem={handleEditItem}
+        handleUpdateItem={handleUpdateItem}
+        editingItem={editingItem}
+        setEditingItem={setEditingItem}
+        editFormData={editFormData}
+        setEditFormData={setEditFormData}
+      />
 
       {/* Charts Section */}
       {chartData.length > 0 && (
