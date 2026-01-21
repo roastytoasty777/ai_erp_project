@@ -56,94 +56,106 @@ function ReceiptGenerator() {
   };
 
   return (
-    <div className="receipt-generator-container" style={{ padding: '20px', border: '1px solid #ccc', marginTop: '20px', borderRadius: '8px', background: '#1e293b', color: 'white' }}>
-      <h2 style={{ borderBottom: '1px solid #475569', paddingBottom: '10px' }}>Receipt Generator (Test Tool)</h2>
+    <div className="generator-card">
+      <h3 className="form-label">MANUAL RECEIPT GENERATOR</h3>
       
-      <div className="form-group" style={{ marginBottom: '15px' }}>
-        <label>Store Name: </label>
+      <div className="generator-form-group">
+        <label>Store Name</label>
         <input 
           type="text" 
           value={storeName} 
           onChange={(e) => setStoreName(e.target.value)} 
           className="form-input"
-          style={{ marginLeft: '10px' }}
+          placeholder="Enter Store Name"
         />
       </div>
 
-      <div className="add-item-form" style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '15px' }}>
-        <input 
-          type="text" 
-          placeholder="Item Name" 
-          value={currentItem.name} 
-          onChange={(e) => setCurrentItem({...currentItem, name: e.target.value})}
-          className="form-input"
-        />
-        <input 
-          type="number" 
-          placeholder="Qty" 
-          value={currentItem.qty} 
-          onChange={(e) => setCurrentItem({...currentItem, qty: e.target.value})}
-          className="form-input"
-          style={{ width: '80px' }}
-        />
-        <input 
-          type="number" 
-          placeholder="Price" 
-          value={currentItem.price} 
-          onChange={(e) => setCurrentItem({...currentItem, price: e.target.value})}
-          className="form-input"
-          style={{ width: '100px' }}
-        />
-        <button onClick={addItem} className="submit-btn" style={{ padding: '8px 15px' }}>+ Add</button>
+      <div className="add-item-row">
+        <div className="input-group grow">
+            <input 
+            type="text" 
+            placeholder="Item Name" 
+            value={currentItem.name} 
+            onChange={(e) => setCurrentItem({...currentItem, name: e.target.value})}
+            className="form-input"
+            />
+        </div>
+        <div className="input-group shrink">
+            <input 
+            type="number" 
+            placeholder="Qty" 
+            value={currentItem.qty} 
+            onChange={(e) => setCurrentItem({...currentItem, qty: e.target.value})}
+            className="form-input"
+            />
+        </div>
+        <div className="input-group medium">
+            <input 
+            type="number" 
+            placeholder="Price" 
+            value={currentItem.price} 
+            onChange={(e) => setCurrentItem({...currentItem, price: e.target.value})}
+            className="form-input"
+            />
+        </div>
+        <button onClick={addItem} className="add-icon-btn">+</button>
       </div>
 
-      <div className="items-list" style={{ marginBottom: '20px' }}>
-        <table style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
+      <div className="items-list-container">
+        <table className="mini-table">
           <thead>
-            <tr style={{ borderBottom: '1px solid #475569' }}>
+            <tr>
               <th>Item</th>
               <th>Qty</th>
               <th>Price</th>
               <th>Total</th>
-              <th>Action</th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
-            {items.map((item, index) => (
-              <tr key={index} style={{ borderBottom: '1px solid #334155' }}>
-                <td>{item.name}</td>
-                <td>{item.qty}</td>
-                <td>${item.price.toFixed(2)}</td>
-                <td>${(item.qty * item.price).toFixed(2)}</td>
-                <td>
-                  <button onClick={() => removeItem(index)} style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer' }}>✕</button>
-                </td>
-              </tr>
-            ))}
+            {items.length === 0 ? (
+                <tr>
+                    <td colSpan="5" className="empty-row">No items added yet</td>
+                </tr>
+            ) : (
+                items.map((item, index) => (
+                <tr key={index}>
+                    <td>{item.name}</td>
+                    <td>{item.qty}</td>
+                    <td>${item.price.toFixed(2)}</td>
+                    <td>${(item.qty * item.price).toFixed(2)}</td>
+                    <td className="action-cell">
+                    <button onClick={() => removeItem(index)} className="remove-icon-btn">×</button>
+                    </td>
+                </tr>
+                ))
+            )}
           </tbody>
         </table>
-        <div style={{ textAlign: 'right', marginTop: '10px', fontSize: '1.2em' }}>
-          <strong>Total: ${calculateTotal().toFixed(2)}</strong>
-        </div>
+      </div>
+      
+      <div className="total-row">
+        <span>Total Amount:</span>
+        <span className="total-value">${calculateTotal().toFixed(2)}</span>
       </div>
 
-      <div className="actions" style={{ marginBottom: '20px' }}>
+      <div className="actions">
         <button 
           onClick={generateReceipt} 
-          className="submit-btn" 
+          className="action-btn generate-btn" 
           disabled={items.length === 0 || loading}
-          style={{ width: '100%' }}
         >
-          {loading ? "Generating..." : "Generate Receipt Information"}
+          {loading ? "Generating..." : "GENERATE RECEIPT"}
         </button>
       </div>
 
       {generatedImage && (
-        <div className="result-preview" style={{ textAlign: 'center', marginTop: '20px', padding: '20px', background: '#f8fafc', borderRadius: '8px' }}>
-          <h3 style={{ color: '#334155', marginBottom: '10px' }}>Generated Receipt</h3>
-          <img src={generatedImage} alt="Generated Receipt" style={{ border: '1px solid #ccc', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }} />
-          <br />
-          <a href={generatedImage} download="fake_receipt.png" className="submit-btn" style={{ display: 'inline-block', marginTop: '15px', textDecoration: 'none' }}>
+        <div className="result-preview">
+          <h4 className="preview-title">Generated Receipt</h4>
+          <div className="image-wrapper">
+             <img src={generatedImage} alt="Generated Receipt" />
+          </div>
+          <a href={generatedImage} download="fake_receipt.png" className="download-link">
             Download Image
           </a>
         </div>

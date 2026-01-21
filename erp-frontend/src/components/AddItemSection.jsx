@@ -1,12 +1,26 @@
 import React from 'react';
+import ReceiptGenerator from './ReceiptGenerator';
 
 const AddItemSection = ({ 
   handleFileUpload, 
   handleCreateItem, 
   formData, 
   setFormData, 
-  status 
+  status,
+  stockItems = [] 
 }) => {
+  const handleStockSelect = (e) => {
+    const selectedItemName = e.target.value;
+    const selectedStock = stockItems.find(item => item.name === selectedItemName);
+    
+    setFormData({
+      ...formData,
+      item_name: selectedItemName,
+      // Optional: Auto-fill price if you wanted to enforce stock price
+      price: selectedStock ? selectedStock.price : formData.price
+    });
+  };
+
   return (
     <section id="section-add-item" className="controls">
       {/* Combined Upload and Form Section */}
@@ -26,42 +40,10 @@ const AddItemSection = ({
           <span className="separator-text">OR</span>
         </div>
 
-        {/* Right Section - Form */}
+        {/* Right Section - Receipt Generator (Replaces Manual Form) */}
         <div className="right-section">
-          <div className="form-box">
-            <h3 className="form-label">ADD ITEM MANUALLY</h3>
-            <form onSubmit={handleCreateItem} className="create-form">
-              <input
-                type="text"
-                placeholder="Item Name"
-                value={formData.item_name}
-                onChange={(e) => setFormData({ ...formData, item_name: e.target.value })}
-                className="form-input"
-              />
-              <input
-                type="number"
-                placeholder="Quantity"
-                value={formData.quantity}
-                onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
-                className="form-input"
-              />
-              <input
-                type="number"
-                placeholder="Price"
-                step="0.01"
-                value={formData.price}
-                onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                className="form-input"
-              />
-              <input
-                type="number"
-                placeholder="Warehouse Stock"
-                value={formData.stock_level}
-                onChange={(e) => setFormData({ ...formData, stock_level: e.target.value })}
-                className="form-input"
-              />
-              <button type="submit" className="submit-btn">Create Item</button>
-            </form>
+          <div className="form-box" style={{ padding: 0, backgroundColor: 'transparent', boxShadow: 'none' }}>
+            <ReceiptGenerator />
           </div>
         </div>
       </div>

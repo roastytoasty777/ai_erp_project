@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Depends, UploadFile, File
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from sqlalchemy import create_engine, Column, Integer, String, Float
+from sqlalchemy import create_engine, Column, Integer, String, Float, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
 from typing import List
@@ -31,6 +31,7 @@ class DBStock(Base):
     id = Column(Integer, primary_key=True, index=True)
     item_name = Column(String, unique=True, index=True)
     current_quantity = Column(Integer, default=0)
+    price = Column(Float, default=0.0)
 
 class ItemUpdate(BaseModel):
     quantity: int
@@ -39,6 +40,20 @@ class ItemUpdate(BaseModel):
 class StockUpdate(BaseModel):
     item_name: str
     current_quantity: int
+    price: float = 0.0
+
+class StockCreate(BaseModel):
+    item_name: str
+    quantity: int
+    price: float
+
+class StockResponse(BaseModel):
+    id: int
+    item_name: str
+    current_quantity: int
+    price: float
+    class Config:
+        from_attributes = True
 
 Base.metadata.create_all(bind=engine)
 
@@ -55,6 +70,15 @@ class OrderResponse(OrderCreate):
 
 # App setup
 app = FastAPI()
+
+# MIGRATION HELPER
+@app.on_event("startup")
+def check_schema():
+    with engine.connect() as connection:
+        try:
+            connection.execute(text("ALTER TABLE stock ADD COLUMN price FLOAT DEFAULT 0.0"))
+        except:
+            pass # Column likely exists
 
 # CORS
 app.add_middleware(
@@ -78,8 +102,44 @@ def get_db():
 def read_root():
     return {"message": "Welcome to the Order Management API"}
 
+# STOCK ENDPOINTS
+@app.post("/stock/", response_model=StockResponse)
+def create_stock(item: StockCreate, db: Session = Depends(get_db)):
+    db_item = db.query(DBStock).filter(DBStock.item_name == item.item_name).first()
+    if db_item:
+        raise HTTPException(status_code=400, detail="Item already exists in stock")
+    new_item = DBStock(item_name=item.item_name, current_quantity=item.quantity, price=item.price)
+    db.add(new_item)
+    db.commit()
+    db.refresh(new_item)
+    return new_item
+
+@app.get("/stock/", response_model=List[StockResponse])
+def get_stock(db: Session = Depends(get_db)):
+    return db.query(DBStock).all()
+
+@app.delete("/stock/{item_name}")
+def delete_stock(item_name: str, db: Session = Depends(get_db)):
+    item = db.query(DBStock).filter(DBStock.item_name == item_name).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    db.delete(item)
+    db.commit()
+    return {"message": "Stock item deleted"}
+
 @app.post("/create-order/")
 def create_order(order: OrderCreate, db: Session = Depends(get_db)):
+    # Check Stock
+    stock_item = db.query(DBStock).filter(DBStock.item_name == order.item_name).first()
+    if not stock_item:
+        raise HTTPException(status_code=400, detail=f"Item '{order.item_name}' not found in stock. Please add it to stock first.")
+    
+    if stock_item.current_quantity < order.quantity:
+        raise HTTPException(status_code=400, detail=f"Insufficient stock for '{order.item_name}'. Available: {stock_item.current_quantity}")
+
+    # Deduct Stock
+    stock_item.current_quantity -= order.quantity
+    
     new_db_order = DBOrder(
         item_name=order.item_name,
         quantity=order.quantity,
@@ -175,19 +235,26 @@ async def upload_receipt(file: UploadFile = File(...), db: Session = Depends(get
             qty = int(match.group(2))
             price = float(match.group(3))
             
-            # Save to Database
-            new_order = DBOrder(item_name=name, quantity=qty, price=price)
-            db.add(new_order)
-            detected_items.append({"name": name, "qty": qty, "price": price})
+            # Save to Database with Stock Check
+            stock_item = db.query(DBStock).filter(DBStock.item_name == name).first()
+            
+            if stock_item and stock_item.current_quantity >= qty:
+                stock_item.current_quantity -= qty
+                new_order = DBOrder(item_name=name, quantity=qty, price=price)
+                db.add(new_order)
+                detected_items.append({"name": name, "qty": qty, "price": price, "status": "Added"})
+            else:
+                reason = "Not in Stock" if not stock_item else "Insufficient Qty"
+                detected_items.append({"name": name, "qty": qty, "price": price, "status": f"Error: {reason}"})
     
     db.commit()
 
     return {
         "filename": file.filename,
         "extracted_text": text,
-        "detected_item": f"{len(detected_items)} items detected",
+        "detected_item": f"{len([i for i in detected_items if 'Error' not in i['status']])} items added",
         "detected_items": detected_items,
-        "ai_note": "Logic enhanced to parse lines and save to DB automatically."
+        "ai_note": "Logic enhanced to parse lines and validate against Stock."
     }
 
 @app.delete("/orders/{item_name}")
@@ -223,19 +290,25 @@ def update_item(item_name: str, update_data: ItemUpdate, db: Session = Depends(g
 @app.put("/update-stock/{item_name}")
 def update_stock(item_name: str, update_data: StockUpdate, db: Session = Depends(get_db)):
     """
-    Update or create stock level for an item.
+    Update stock level and price for an item.
     """
     stock = db.query(DBStock).filter(DBStock.item_name == item_name).first()
     
     if stock:
         stock.current_quantity = update_data.current_quantity
+        stock.price = update_data.price
     else:
-        stock = DBStock(item_name=item_name, current_quantity=update_data.current_quantity)
+        # Allow creation via update endpoint? 
+        # Requirement says sales reference stock. So stock creation should be explicit.
+        # But for compatibility, we can keep creation here or restrict it. 
+        # Given "Sales now should use reference...", maybe we stick to strict creation?
+        # Let's allow upsert for flexibility but ensure price is handled.
+        stock = DBStock(item_name=item_name, current_quantity=update_data.current_quantity, price=update_data.price)
         db.add(stock)
     
     db.commit()
     db.refresh(stock)
-    return {"message": f"Stock updated for {item_name}", "current_quantity": stock.current_quantity}
+    return {"message": f"Stock updated for {item_name}", "current_quantity": stock.current_quantity, "price": stock.price}
 
 @app.get("/dashboard/chart-data/")
 def get_chart_data(db: Session = Depends(get_db)):
